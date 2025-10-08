@@ -597,43 +597,162 @@ statusEl.textContent = 'Stopped';
 statusEl.className = 'market-status stopped';
 }
 
-// Participants
+// Participants with detailed portfolio
 const participantList = document.getElementById('participantList');
 participantList.innerHTML = '';
 if(systemState.participants.length === 0){
 participantList.innerHTML = '<div class="muted small">No participants yet.</div>';
 } else {
 systemState.participants.forEach((p, idx) => {
+// Calculate portfolio value
+let holdingsValue = 0;
+let holdingsHTML = '';
+
+if(p.investments && p.investments.length > 0) {
+p.investments.forEach(inv => {
+const currentStock = systemState.companies.find(c => c.symbol === inv.symbol);
+const currentPrice = currentStock ? currentStock.price : inv.buyPrice;
+const investmentValue = currentPrice * inv.qty;
+const profitLoss = (currentPrice - inv.buyPrice) * inv.qty;
+const profitLossPercent = ((currentPrice - inv.buyPrice) / inv.buyPrice) * 100;
+
+holdingsValue += investmentValue;
+
+const plColor = profitLoss >= 0 ? '#16a34a' : '#ef4444';
+holdingsHTML += `
+<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid #f1f5f9">
+<div>
+<strong>${inv.symbol}</strong>: ${inv.qty} shares @ ${formatINR(inv.buyPrice)}
+</div>
+<div style="text-align:right">
+<div>Value: ${formatINR(investmentValue)}</div>
+<div style="color:${plColor};font-weight:600">
+${profitLoss >= 0 ? '+' : ''}${formatINR(profitLoss)} (${profitLoss >= 0 ? '+' : ''}${profitLossPercent.toFixed(2)}%)
+</div>
+</div>
+</div>
+`;
+});
+} else {
+holdingsHTML = '<div class="small muted" style="padding:4px 0">No holdings</div>';
+}
+
+const totalPortfolio = Number(p.cash) + holdingsValue;
+const totalInvested = p.investments.reduce((acc, inv) => acc + (inv.buyPrice * inv.qty), 0);
+const overallPL = holdingsValue - totalInvested;
+const overallPLColor = overallPL >= 0 ? '#16a34a' : '#ef4444';
+
 const div = document.createElement('div');
 div.className = 'participant-item';
+div.style.flexDirection = 'column';
+div.style.alignItems = 'stretch';
 div.innerHTML = `
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div>
-<div style="font-weight:600">${p.username}</div>
-<div class="small muted">Balance: ${formatINR(p.cash)} | Holdings: ${p.investments.length}</div>
+<div style="font-weight:600;font-size:16px">${p.username}</div>
+<div class="small muted">Cash: ${formatINR(p.cash)} | Holdings: ${p.investments.length} stocks</div>
 </div>
 <div class="participant-actions">
 <button class="ghost" onclick="editParticipant(${idx})">Edit</button>
 <button class="danger" onclick="deleteParticipant(${idx})">Delete</button>
+</div>
+</div>
+<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:8px">
+<div>
+<div class="small muted">Total Portfolio</div>
+<div style="font-weight:700;font-size:16px">${formatINR(totalPortfolio)}</div>
+</div>
+<div>
+<div class="small muted">Holdings Value</div>
+<div style="font-weight:700;font-size:16px">${formatINR(holdingsValue)}</div>
+</div>
+<div>
+<div class="small muted">Overall P/L</div>
+<div style="font-weight:700;font-size:16px;color:${overallPLColor}">
+${overallPL >= 0 ? '+' : ''}${formatINR(overallPL)}
+</div>
+</div>
+</div>
+${p.investments.length > 0 ? `
+<div style="margin-top:8px">
+<div class="small muted" style="margin-bottom:4px;font-weight:600">Investment Details:</div>
+${holdingsHTML}
+</div>
+` : holdingsHTML}
 </div>
 `;
 participantList.appendChild(div);
 });
 }
 
-// Stocks
+// Stocks with current prices and changes
 const stockList = document.getElementById('stockList');
 stockList.innerHTML = '';
 systemState.stocks.forEach((s, idx) => {
+// Find current live price
+const liveStock = systemState.companies.find(c => c.symbol === s.symbol);
+const currentPrice = liveStock ? liveStock.price : s.price;
+const priceChange = currentPrice - s.price;
+const priceChangePercent = ((currentPrice - s.price) / s.price) * 100;
+const changeColor = priceChange >= 0 ? '#16a34a' : '#ef4444';
+
+// Calculate total shares held by all participants
+let totalShares = 0;
+let totalInvested = 0;
+systemState.participants.forEach(p => {
+p.investments.forEach(inv => {
+if(inv.symbol === s.symbol) {
+totalShares += inv.qty;
+totalInvested += inv.buyPrice * inv.qty;
+}
+});
+});
+
+const currentValue = currentPrice * totalShares;
+const marketPL = currentValue - totalInvested;
+
 const div = document.createElement('div');
 div.className = 'stock-item';
+div.style.flexDirection = 'column';
+div.style.alignItems = 'stretch';
 div.innerHTML = `
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div>
-<div style="font-weight:600">${s.symbol} - ${s.name}</div>
+<div style="font-weight:600;font-size:16px">${s.symbol} - ${s.name}</div>
 <div class="small muted">Starting Price: ${formatINR(s.price)}</div>
 </div>
 <div class="stock-actions">
 <button class="ghost" onclick="editStock(${idx})">Edit</button>
 <button class="danger" onclick="deleteStock(${idx})">Delete</button>
+</div>
+</div>
+<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+<div>
+<div class="small muted">Current Price</div>
+<div style="font-weight:700;font-size:16px">${formatINR(currentPrice)}</div>
+</div>
+<div>
+<div class="small muted">Price Change</div>
+<div style="font-weight:700;font-size:14px;color:${changeColor}">
+${priceChange >= 0 ? '+' : ''}${formatINR(priceChange)}
+<div class="small" style="color:${changeColor}">(${priceChange >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%)</div>
+</div>
+</div>
+<div>
+<div class="small muted">Shares Held</div>
+<div style="font-weight:700;font-size:16px">${totalShares}</div>
+<div class="small muted">by participants</div>
+</div>
+<div>
+<div class="small muted">Market P/L</div>
+<div style="font-weight:700;font-size:14px;color:${marketPL >= 0 ? '#16a34a' : '#ef4444'}">
+${marketPL >= 0 ? '+' : ''}${formatINR(marketPL)}
+</div>
+<div class="small muted">Total: ${formatINR(currentValue)}</div>
+</div>
+</div>
 </div>
 `;
 stockList.appendChild(div);
@@ -1051,6 +1170,12 @@ const company = systemState.companies.find(c=>c.symbol===symbol);
 if(!company) return;
 const cost = company.price * qty;
 if(cost > currentUser.data.cash){ alert("Not enough cash"); return; }
+
+// Show confirmation
+if(!showBuyConfirmation(symbol, qty, company.price, cost)) {
+return;
+}
+
 currentUser.data.cash -= cost;
 
 const existing = currentUser.data.investments.find(i=>i.symbol===symbol && i.buyPrice===company.price);
@@ -1063,6 +1188,11 @@ currentUser.data.investments.push({ symbol, qty, buyPrice: company.price, buyTim
 await syncParticipantData();
 renderHeader();
 renderInvestments();
+alert(`✓ Purchase Successful!\n\nBought ${qty} shares of ${symbol}\nAmount Debited: ${formatINR(cost)}\nRemaining Balance: ${formatINR(currentUser.data.cash)}`);
+}
+await syncParticipantData();
+renderHeader();
+renderInvestments();
 alert(`Bought ${qty} ${symbol} @ ${formatINR(company.price)} — cost ${formatINR(cost)}`);
 }
 
@@ -1071,29 +1201,44 @@ if(!qty || qty<=0){ alert("Enter valid quantity"); return; }
 let remaining = qty;
 let totalProceeds = 0;
 
+// Calculate first
+const livePrice = systemState.companies.find(c=>c.symbol===symbol)?.price;
+if(!livePrice) { alert("Stock not found"); return; }
+
+let canSell = 0;
+for(let i = 0; i < currentUser.data.investments.length; i++){
+const inv = currentUser.data.investments[i];
+if(inv.symbol === symbol) canSell += inv.qty;
+}
+
+if(canSell < qty){
+alert("You don't hold that many shares to sell.");
+return;
+}
+
+totalProceeds = livePrice * qty;
+
+// Show confirmation
+if(!showSellConfirmation(symbol, qty, livePrice, totalProceeds)) {
+return;
+}
+
+// Now execute the sale
 for(let i = currentUser.data.investments.length-1; i>=0 && remaining>0; i--){
 const inv = currentUser.data.investments[i];
 if(inv.symbol !== symbol) continue;
 const sellQty = Math.min(inv.qty, remaining);
-const livePrice = (systemState.companies.find(c=>c.symbol===symbol)?.price) || inv.buyPrice;
-totalProceeds += sellQty * livePrice;
 inv.qty -= sellQty;
 remaining -= sellQty;
 if(inv.qty === 0) currentUser.data.investments.splice(i,1);
-}
-
-if(remaining>0){
-alert("You don't hold that many shares to sell.");
-return;
 }
 
 currentUser.data.cash += totalProceeds;
 await syncParticipantData();
 renderHeader();
 renderInvestments();
-alert(`Sold ${qty} ${symbol} for ${formatINR(totalProceeds)}.`);
+alert(`✓ Sale Successful!\n\nSold ${qty} shares of ${symbol}\nAmount Credited: ${formatINR(totalProceeds)}\nNew Balance: ${formatINR(currentUser.data.cash)}`);
 }
-
 async function sellInvestment(index){
 const inv = currentUser.data.investments[index];
 if(!inv) return;
@@ -1102,12 +1247,17 @@ const live = company ? company.price : inv.buyPrice;
 const proceeds = live * inv.qty;
 const profitLoss = proceeds - (inv.buyPrice * inv.qty);
 
+// Show confirmation
+if(!showSellConfirmation(inv.symbol, inv.qty, live, proceeds)) {
+return;
+}
+
 currentUser.data.investments.splice(index,1);
 currentUser.data.cash += proceeds;
 await syncParticipantData();
 renderHeader();
 renderInvestments();
-alert(`${profitLoss>=0 ? 'Profit' : 'Loss'}: ${formatINR(profitLoss)} on ${inv.symbol}`);
+alert(`✓ Sale Successful!\n\n${profitLoss>=0 ? '💰 Profit' : '📉 Loss'}: ${formatINR(Math.abs(profitLoss))}\nAmount Credited: ${formatINR(proceeds)}\nNew Balance: ${formatINR(currentUser.data.cash)}`);
 }
 
 async function syncParticipantData(){
@@ -1116,6 +1266,34 @@ if(pIndex !== -1){
 systemState.participants[pIndex] = currentUser.data;
 await saveParticipant(currentUser.data);
 }
+}
+
+/* -------------------------
+Confirmation Dialogs
+------------------------- */
+
+function showBuyConfirmation(symbol, qty, price, totalCost) {
+return confirm(
+`CONFIRM PURCHASE\n\n` +
+`Stock: ${symbol}\n` +
+`Quantity: ${qty} shares\n` +
+`Price per share: ${formatINR(price)}\n` +
+`Total Amount: ${formatINR(totalCost)}\n\n` +
+`${formatINR(totalCost)} will be deducted from your account.\n\n` +
+`Do you want to proceed?`
+);
+}
+
+function showSellConfirmation(symbol, qty, livePrice, totalProceeds) {
+return confirm(
+`CONFIRM SALE\n\n` +
+`Stock: ${symbol}\n` +
+`Quantity: ${qty} shares\n` +
+`Price per share: ${formatINR(livePrice)}\n` +
+`Total Amount: ${formatINR(totalProceeds)}\n\n` +
+`${formatINR(totalProceeds)} will be deposited to your account.\n\n` +
+`Do you want to proceed?`
+);
 }
 
 /* -------------------------
