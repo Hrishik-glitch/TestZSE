@@ -1354,17 +1354,30 @@ errorEl.style.display = 'block';
 document.getElementById('logoutBtn').addEventListener('click', logout);
 document.getElementById('logoutBtnParticipant').addEventListener('click', logout);
 
-document.getElementById('startMarketBtn').addEventListener('click', startMarket);
-document.getElementById('stopMarketBtn').addEventListener('click', stopMarket);
+document.getElementById('startMarketBtn').addEventListener('click', async ()=>{
+await startMarket();
+});
+
+document.getElementById('stopMarketBtn').addEventListener('click', async ()=>{
+await stopMarket();
+});
 
 document.getElementById('addParticipantBtn').addEventListener('click', addParticipant);
-document.getElementById('saveParticipantBtn').addEventListener('click', saveParticipantHandler);
+
+document.getElementById('saveParticipantBtn').addEventListener('click', async ()=>{
+await saveParticipantHandler();
+});
+
 document.getElementById('cancelParticipantBtn').addEventListener('click', ()=>{
 document.getElementById('participantModal').classList.remove('active');
 });
 
 document.getElementById('addStockBtn').addEventListener('click', addStock);
-document.getElementById('saveStockBtn').addEventListener('click', saveStockHandler);
+
+document.getElementById('saveStockBtn').addEventListener('click', async ()=>{
+await saveStockHandler();
+});
+
 document.getElementById('cancelStockBtn').addEventListener('click', ()=>{
 document.getElementById('stockModal').classList.remove('active');
 });
@@ -1374,7 +1387,7 @@ window.editParticipant = editParticipant;
 window.deleteParticipant = deleteParticipant;
 window.editStock = editStock;
 window.deleteStock = deleteStock;
-
+  
 /* -------------------------
 Initialize
 ------------------------- */
