@@ -590,12 +590,31 @@ Admin Auto-Refresh
 
 let adminRefreshHandle = null;
 
+async function refreshAdminData(){
+if(currentUser && currentUser.role === 'admin'){
+// Fetch latest data from Supabase
+const { data: participants, error: participantsError } = await supabase
+.from('participants')
+.select('*');
+
+if (!participantsError && participants) {
+systemState.participants = participants.map(p => ({
+username: p.username,
+password: p.password,
+cash: Number(p.cash),
+investments: p.investments || []
+}));
+}
+
+// Re-render with fresh data
+renderAdminDashboard();
+}
+}
+
 function startAdminRefresh(){
 stopAdminRefresh();
 adminRefreshHandle = setInterval(()=> {
-if(currentUser && currentUser.role === 'admin'){
-renderAdminDashboard();
-}
+refreshAdminData();
 }, 3000); // Refresh every 3 seconds
 }
 
@@ -605,7 +624,6 @@ clearInterval(adminRefreshHandle);
 adminRefreshHandle = null; 
 }
 }
-
 /* -------------------------
 Admin Dashboard
 ------------------------- */
