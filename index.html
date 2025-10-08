@@ -542,6 +542,7 @@ return false;
 
 function logout(){
 currentUser = null;
+stopAdminRefresh();
 showLoginScreen();
 }
 
@@ -572,6 +573,7 @@ function showAdminView(){
 document.getElementById('adminPanel').style.display = 'block';
 document.getElementById('participantView').style.display = 'none';
 renderAdminDashboard();
+startAdminRefresh();
 }
 
 function showParticipantView(){
@@ -580,6 +582,28 @@ document.getElementById('participantView').style.display = 'block';
 document.getElementById('currentUser').textContent = currentUser.username;
 renderParticipantView();
 startTicker();
+}
+
+/* -------------------------
+Admin Auto-Refresh
+------------------------- */
+
+let adminRefreshHandle = null;
+
+function startAdminRefresh(){
+stopAdminRefresh();
+adminRefreshHandle = setInterval(()=> {
+if(currentUser && currentUser.role === 'admin'){
+renderAdminDashboard();
+}
+}, 3000); // Refresh every 3 seconds
+}
+
+function stopAdminRefresh(){
+if(adminRefreshHandle) { 
+clearInterval(adminRefreshHandle); 
+adminRefreshHandle = null; 
+}
 }
 
 /* -------------------------
